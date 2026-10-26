@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Pen</title>
+<style>
+body{font-family:Arial;background:#f1f4f8;margin:0;color:#172033}
+header{background:#17365c;color:white;text-align:center;padding:18px}
+main{padding:15px;max-width:600px;margin:auto}
+.card{background:white;padding:15px;margin:12px 0;border-radius:12px}
+input,button{box-sizing:border-box;width:100%;padding:12px;margin:5px 0;border-radius:8px;font-size:16px}
+input{border:1px solid #ccc}
+button{background:#17365c;color:white;border:0}
+.item{padding:10px;border-bottom:1px solid #ddd}
+</style>
+</head>
+<body>
+<header><h1>GOLDEN PEN</h1><p>نظام المبيعات بالدولار</p></header>
+<main>
+<div class="card">
+<h3>إضافة مادة</h3>
+<input id="b" placeholder="الباركود">
+<input id="n" placeholder="اسم المادة">
+<input id="p" type="number" min="0" step="0.01" placeholder="السعر بالدولار">
+<button onclick="add()">حفظ المادة</button>
+</div>
+<div class="card">
+<h3>تسجيل بيع</h3>
+<input id="q" placeholder="ابحث بالاسم أو الباركود">
+<button onclick="find()">بحث</button>
+<div id="selected"></div>
+</div>
+<div class="card">
+<h3>مبيعات اليوم</h3>
+<h2 id="total">$0.00</h2>
+<div id="sales"></div>
+<button onclick="backup()">تصدير نسخة احتياطية</button>
+</div>
+<div class="card">
+<h3>المنتجات</h3>
+<div id="products"></div>
+</div>
+</main>
+<script>
+let db;
+try{db=JSON.parse(localStorage.getItem('gp'))||{products:[],sales:[]}}
+catch(e){db={products:[],sales:[]}}
+let chosen=null;
+function save(){localStorage.setItem('gp',JSON.stringify(db));render()}
+function money(n){return '$'+Number(n).toFixed(2)}
+function add(){
+let b=document.getElementById('b').value.trim();
+let n=document.getElementById('n').value.trim();
+let p=document.getElementById('p').value;
+if(!b||!n||p===''||Number(p)<0)return alert('أدخل البيانات كاملة');
+let old=db.products.find(x=>x.b===b);
+if(old){old.n=n;old.p=Number(p)}
+else db.products.push({b,n,p:Number(p)});
+save();alert('تم الحفظ');
+}
+function find(){
+let q=document.getElementById('q').value.trim().toLowerCase();
+chosen=db.products.find(x=>x.b.toLowerCase()===q||x.n.toLowerCase()===q);
+if(!chosen){document.getElementById('selected').textContent='المادة غير موجودة';return}
+document.getElementById('selected').innerHTML=
+'<p>'+chosen.n+' — '+money(chosen.p)+'</p>'+
+'<input id="qty" type="number" min="1" value="1">'+
+'<button onclick="sell()">تأكيد البيع</button>';
+}
+function sell(){
+let qty=Number(document.getElementById('qty').value);
+if(!chosen||!Number.isInteger(qty)||qty<1)return alert('تحقق من الكمية');
+db.sales.push({id:Date.now()+'-'+Math.random(),b:chosen.b,n:chosen.n,p:chosen.p,qty,total:Math.round(chosen.p*qty*100)/100,date:new Date().toISOString()});
+save();document.getElementById('selected').innerHTML='';
+document.getElementById('q').value='';chosen=null;alert('تم تسجيل البيع');
+}
+function render(){
+document.getElementById('products').innerHTML=db.products.map(x=>'<div class="item">'+x.n+' — '+money(x.p)+'<br><small>'+x.b+'</small></div>').join('')||'لا توجد منتجات';
+let today=new Date().toDateString();
+let a=db.sales.filter(x=>new Date(x.date).toDateString()===today);
+document.getElementById('total').textContent=money(a.reduce((s,x)=>s+x.total,0));
+document.getElementById('sales').innerHTML=a.slice().reverse().map(x=>'<div class="item">'+x.n+' × '+x.qty+' = '+money(x.total)+'</div>').join('')||'لا توجد مبيعات اليوم';
+}
+function backup(){
+let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='golden-pen-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+render();
+</script>
+</body>
+</html>
